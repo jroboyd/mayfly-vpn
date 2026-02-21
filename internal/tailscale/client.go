@@ -40,6 +40,15 @@ func (c *Client) FindDevice(ctx context.Context, hostnamePrefix string) (string,
 	return "", fmt.Errorf("device with hostname prefix %q not found", hostnamePrefix)
 }
 
+// ApproveExitNode enables exit node routes (0.0.0.0/0 and ::/0) for a device.
+func (c *Client) ApproveExitNode(ctx context.Context, deviceID string) error {
+	routes := []string{"0.0.0.0/0", "::/0"}
+	if err := c.inner.Devices().SetSubnetRoutes(ctx, deviceID, routes); err != nil {
+		return fmt.Errorf("approving exit node routes: %w", err)
+	}
+	return nil
+}
+
 // RemoveDevice deletes a device from the tailnet by ID.
 func (c *Client) RemoveDevice(ctx context.Context, deviceID string) error {
 	if err := c.inner.Devices().Delete(ctx, deviceID); err != nil {

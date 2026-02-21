@@ -66,6 +66,22 @@ func Run(ctx context.Context, cfg *config.Config) error {
 	display.Info("Security Group:", res.SecurityGroupID)
 	display.Info("Region:", cfg.Region)
 	display.Info("TTL:", cfg.TTL.String())
+
+	// --- Wait for device to join tailnet and approve exit node ---
+	display.Status("Waiting for device to join tailnet...")
+	tsClient := tailscale.NewClient(cfg.TailscaleAPIKey, cfg.TailscaleTailnet)
+	if deviceID, err := waitForDevice(ctx, tsClient, userdata.Hostname()); err != nil {
+		display.Warn(fmt.Sprintf("Could not find device in tailnet: %v", err))
+	} else {
+		display.Success(fmt.Sprintf("Device joined tailnet (ID: %s)", deviceID))
+		display.Status("Approving exit node routes...")
+		if err := tsClient.ApproveExitNode(ctx, deviceID); err != nil {
+			display.Warn(fmt.Sprintf("Could not approve exit node: %v", err))
+		} else {
+			display.Success("Exit node approved")
+		}
+	}
+
 	fmt.Println()
 
 	// --- Countdown ---
@@ -132,6 +148,29 @@ func saveState(cfg *config.Config, res *mayaws.Resources) {
 	}
 	if err := state.Save(s); err != nil {
 		display.Warn(fmt.Sprintf("Could not save state file: %v", err))
+	}
+}
+
+// waitForDevice polls the Tailscale API until the device appears or the context is cancelled.
+func waitForDevice(ctx context.Context, tsClient *tailscale.Client, hostname string) (string, error) {
+	ticker := time.NewTicker(5 * time.Second)
+	defer ticker.Stop()
+
+	timeout := time.After(3 * time.Minute)
+
+	for {
+		deviceID, err := tsClient.FindDevice(ctx, hostname)
+		if err == nil {
+			return deviceID, nil
+		}
+
+		select {
+		case <-ctx.Done():
+			return "", ctx.Err()
+		case <-timeout:
+			return "", fmt.Errorf("timed out waiting for device to join tailnet")
+		case <-ticker.C:
+		}
 	}
 }
 

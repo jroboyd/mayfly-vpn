@@ -37,7 +37,7 @@ func createSecurityGroup(ctx context.Context, client *ec2.Client, vpcID string) 
 
 	sg, err := client.CreateSecurityGroup(ctx, &ec2.CreateSecurityGroupInput{
 		GroupName:   aws.String(name),
-		Description: aws.String("Mayfly ephemeral exit node — safe to delete"),
+		Description: aws.String("Mayfly ephemeral exit node - safe to delete"),
 		VpcId:       aws.String(vpcID),
 		TagSpecifications: []types.TagSpecification{
 			{

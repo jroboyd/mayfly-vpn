@@ -23,23 +23,23 @@ var upCmd = &cobra.Command{
 }
 
 func init() {
-	upCmd.Flags().String("region", envOrDefault("AWS_REGION", "us-east-1"), "AWS region [$AWS_REGION]")
-	upCmd.Flags().Duration("ttl", envDurationOrDefault("MAYFLY_TTL", 1*time.Hour), "Time to live [$MAYFLY_TTL]")
-	upCmd.Flags().String("instance-type", envOrDefault("MAYFLY_INSTANCE_TYPE", "t3.micro"), "EC2 instance type [$MAYFLY_INSTANCE_TYPE]")
-	upCmd.Flags().String("tailscale-auth-key", os.Getenv("TAILSCALE_AUTH_KEY"), "Tailscale auth key [$TAILSCALE_AUTH_KEY]")
-	upCmd.Flags().String("tailscale-api-key", os.Getenv("TAILSCALE_API_KEY"), "Tailscale API key [$TAILSCALE_API_KEY]")
-	upCmd.Flags().String("tailscale-tailnet", os.Getenv("TAILSCALE_TAILNET"), "Tailscale tailnet name [$TAILSCALE_TAILNET]")
+	upCmd.Flags().String("region", "", "AWS region [$AWS_REGION] (default \"us-east-1\")")
+	upCmd.Flags().Duration("ttl", 0, "Time to live [$MAYFLY_TTL] (default \"1h\")")
+	upCmd.Flags().String("instance-type", "", "EC2 instance type [$MAYFLY_INSTANCE_TYPE] (default \"t3.micro\")")
+	upCmd.Flags().String("tailscale-auth-key", "", "Tailscale auth key [$TAILSCALE_AUTH_KEY]")
+	upCmd.Flags().String("tailscale-api-key", "", "Tailscale API key [$TAILSCALE_API_KEY]")
+	upCmd.Flags().String("tailscale-tailnet", "", "Tailscale tailnet name [$TAILSCALE_TAILNET]")
 
 	rootCmd.AddCommand(upCmd)
 }
 
 func runUp(cmd *cobra.Command, args []string) error {
-	region, _ := cmd.Flags().GetString("region")
-	ttl, _ := cmd.Flags().GetDuration("ttl")
-	instanceType, _ := cmd.Flags().GetString("instance-type")
-	tsAuthKey, _ := cmd.Flags().GetString("tailscale-auth-key")
-	tsAPIKey, _ := cmd.Flags().GetString("tailscale-api-key")
-	tsTailnet, _ := cmd.Flags().GetString("tailscale-tailnet")
+	region := flagOrEnv(cmd, "region", "AWS_REGION", "us-east-1")
+	ttl := flagDurationOrEnv(cmd, "ttl", "MAYFLY_TTL", 1*time.Hour)
+	instanceType := flagOrEnv(cmd, "instance-type", "MAYFLY_INSTANCE_TYPE", "t3.micro")
+	tsAuthKey := flagOrEnv(cmd, "tailscale-auth-key", "TAILSCALE_AUTH_KEY", "")
+	tsAPIKey := flagOrEnv(cmd, "tailscale-api-key", "TAILSCALE_API_KEY", "")
+	tsTailnet := flagOrEnv(cmd, "tailscale-tailnet", "TAILSCALE_TAILNET", "")
 
 	cfg := &config.Config{
 		Region:           region,
@@ -61,15 +61,24 @@ func Execute() error {
 	return rootCmd.Execute()
 }
 
-func envOrDefault(key, fallback string) string {
-	if v := os.Getenv(key); v != "" {
+// flagOrEnv returns the flag value if explicitly set, otherwise the env var, otherwise the fallback.
+func flagOrEnv(cmd *cobra.Command, flag, env, fallback string) string {
+	if cmd.Flags().Changed(flag) {
+		v, _ := cmd.Flags().GetString(flag)
+		return v
+	}
+	if v := os.Getenv(env); v != "" {
 		return v
 	}
 	return fallback
 }
 
-func envDurationOrDefault(key string, fallback time.Duration) time.Duration {
-	if v := os.Getenv(key); v != "" {
+func flagDurationOrEnv(cmd *cobra.Command, flag, env string, fallback time.Duration) time.Duration {
+	if cmd.Flags().Changed(flag) {
+		v, _ := cmd.Flags().GetDuration(flag)
+		return v
+	}
+	if v := os.Getenv(env); v != "" {
 		if d, err := time.ParseDuration(v); err == nil {
 			return d
 		}
