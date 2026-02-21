@@ -7,7 +7,7 @@ Mayfly provisions an EC2 instance with Tailscale configured as an exit node, run
 ## Prerequisites
 
 - Go 1.21+
-- AWS credentials configured (via `~/.aws/credentials`, environment variables, or IAM role)
+- AWS credentials configured (via `~/.aws/credentials`, environment variables, or IAM role) with the [required permissions](#iam-permissions)
 - A default VPC in the target AWS region
 - A [Tailscale](https://tailscale.com) account with:
   - An **auth key** (Settings > Keys > Generate auth key)
@@ -65,6 +65,33 @@ export TAILSCALE_TAILNET=user@github
 Mayfly writes a state file to `~/.mayfly/state.json` after provisioning. If the process is killed unexpectedly, the next `mayfly up` will detect the orphaned resources and clean them up before proceeding.
 
 The state file only contains AWS resource identifiers (instance ID, security group ID, region) — no secrets.
+
+## IAM Permissions
+
+Minimum IAM policy required:
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "ssm:GetParameter",
+        "ec2:DescribeVpcs",
+        "ec2:CreateSecurityGroup",
+        "ec2:AuthorizeSecurityGroupIngress",
+        "ec2:DeleteSecurityGroup",
+        "ec2:RunInstances",
+        "ec2:TerminateInstances",
+        "ec2:DescribeInstances",
+        "ec2:CreateTags"
+      ],
+      "Resource": "*"
+    }
+  ]
+}
+```
 
 ## Architecture
 
